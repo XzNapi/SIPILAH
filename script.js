@@ -1,7 +1,10 @@
-// Configuration
+// ==========================================
+// SIPILAH - Frontend Script (Fixed)
+// ==========================================
+
+// Configuration - GANTI DENGAN URL WEB APP ANDA
 const CONFIG = {
-    // Ganti dengan URL Web App Google Apps Script Anda setelah deployment
-    GAS_URL: 'https://script.google.com/macros/s/AKfycbwm6VAlXYzDfTQExNEzImvgIpQ02gFoDJHbT7JsDLrdLggbKQQg-zB3MNiKrZaFv-Mlug/exec',
+    GAS_URL: 'https://script.google.com/macros/s/AKfycbwm6VAlXYzDfTQExNEzImvgIpQ02gFoDJHbT7JsDLrdLggbKQQg-zB3MNiKrZaFv-Mlug/exec', // GANTI INI!
     MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
     ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
 };
@@ -31,8 +34,17 @@ const elements = {
     itemName: document.getElementById('itemName')
 };
 
+// ==========================================
 // Initialize
+// ==========================================
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Check if GAS_URL is set
+    if (CONFIG.GAS_URL.includes('XXXXXXXX')) {
+        showNotification('⚠️ Konfigurasi belum lengkap! Silakan update GAS_URL di script.js', 'warning');
+        console.error('ERROR: Please update CONFIG.GAS_URL with your Google Apps Script Web App URL');
+    }
+    
     initializeEventListeners();
     loadStats();
 });
@@ -53,8 +65,9 @@ function initializeEventListeners() {
 
     // Category Selection
     elements.categoryCards.forEach(card => {
-        card.addEventListener('change', () => {
-            state.selectedCategory = card.querySelector('input').value;
+        const input = card.querySelector('input');
+        input.addEventListener('change', () => {
+            state.selectedCategory = input.value;
             validateForm();
         });
     });
@@ -69,7 +82,10 @@ function initializeEventListeners() {
     elements.itemName.addEventListener('input', validateForm);
 }
 
+// ==========================================
 // Drag & Drop Handlers
+// ==========================================
+
 function handleDragOver(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -100,16 +116,19 @@ function handleFileSelect(e) {
     }
 }
 
+// ==========================================
 // File Processing
+// ==========================================
+
 function processFile(file) {
     // Validation
     if (!CONFIG.ALLOWED_TYPES.includes(file.type)) {
-        showNotification('Format file tidak didukung. Gunakan JPG, PNG, atau WEBP.', 'error');
+        showNotification('❌ Format file tidak didukung. Gunakan JPG, PNG, atau WEBP.', 'error');
         return;
     }
 
     if (file.size > CONFIG.MAX_FILE_SIZE) {
-        showNotification('Ukuran file terlalu besar. Maksimal 5MB.', 'error');
+        showNotification('❌ Ukuran file terlalu besar. Maksimal 5MB.', 'error');
         return;
     }
 
@@ -121,6 +140,9 @@ function processFile(file) {
         elements.imagePreview.src = e.target.result;
         elements.dropZone.querySelector('.drop-zone-content').hidden = true;
         elements.previewContainer.hidden = false;
+    };
+    reader.onerror = () => {
+        showNotification('❌ Gagal membaca file', 'error');
     };
     reader.readAsDataURL(file);
 
@@ -136,7 +158,10 @@ function resetImage() {
     validateForm();
 }
 
+// ==========================================
 // Form Validation
+// ==========================================
+
 function validateForm() {
     const isValid = state.selectedFile && 
                     state.selectedCategory && 
@@ -145,64 +170,112 @@ function validateForm() {
     elements.submitBtn.disabled = !isValid;
 }
 
-// Submit Handler
+// ==========================================
+// Submit Handler (FIXED)
+// ==========================================
+
 async function handleSubmit(e) {
     e.preventDefault();
     
     if (state.isUploading) return;
     
+    // Validate GAS_URL
+    if (CONFIG.GAS_URL.includes('XXXXXXXX') || !CONFIG.GAS_URL.includes('google.com')) {
+        showNotification('⚠️ URL Google Apps Script belum dikonfigurasi dengan benar!', 'error');
+        return;
+    }
+    
     state.isUploading = true;
     setLoading(true);
+    updateProgress(10, 'Mempersiapkan data...');
 
     try {
         // Convert image to base64
+        updateProgress(20, 'Memproses gambar...');
         const base64Image = await fileToBase64(state.selectedFile);
         
-        // Prepare data
-        const data = {
+        // Prepare payload
+        const payload = {
             action: 'upload',
             itemName: elements.itemName.value.trim(),
             category: state.selectedCategory,
-            imageData: base64Image.split(',')[1], // Remove data:image prefix
+            imageData: base64Image,
             imageType: state.selectedFile.type,
             imageName: state.selectedFile.name,
             timestamp: new Date().toISOString()
         };
 
-        // Update progress
-        updateProgress(30, 'Mengunggah gambar...');
+        updateProgress(40, 'Mengunggah ke server...');
 
-        // Send to Google Apps Script
-        const response = await fetch(CONFIG.GAS_URL, {
-            method: 'POST',
-            body: JSON.stringify(data)
-        });
+        // Method 1: Using fetch with no-cors mode as fallback
+        let response;
+        try {
+            response = await fetch(CONFIG.GAS_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+        } catch (fetchError) {
+            console.log('Fetch failed, trying alternative method...');
+            // If fetch fails, try with form data approach
+            response = await fetchWithFormData(payload);
+        }
 
-        updateProgress(70, 'Menyimpan metadata...');
+        updateProgress(80, 'Memproses respons...');
 
-        const result = await response.json();
+        let result;
+        try {
+            result = await response.json();
+        } catch (jsonError) {
+            // If response is not JSON, check if it's actually successful
+            const text = await response.text();
+            try {
+                result = JSON.parse(text);
+            } catch {
+                throw new Error('Respons server tidak valid: ' + text.substring(0, 100));
+            }
+        }
 
         if (result.success) {
             updateProgress(100, 'Selesai!');
-            setTimeout(showSuccess, 500);
+            setTimeout(() => showSuccess(result.data), 500);
         } else {
-            throw new Error(result.message || 'Upload gagal');
+            throw new Error(result.message || 'Upload gagal dari server');
         }
 
     } catch (error) {
         console.error('Upload error:', error);
-        showNotification('Terjadi kesalahan: ' + error.message, 'error');
+        showNotification('❌ ' + error.message, 'error');
         setLoading(false);
         state.isUploading = false;
     }
 }
 
+// Alternative fetch method using URL-encoded form data
+async function fetchWithFormData(payload) {
+    const formData = new URLSearchParams();
+    formData.append('data', JSON.stringify(payload));
+    
+    return await fetch(CONFIG.GAS_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString()
+    });
+}
+
+// ==========================================
 // Utility Functions
+// ==========================================
+
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
+        reader.onerror = () => reject(new Error('Gagal membaca file'));
         reader.readAsDataURL(file);
     });
 }
@@ -219,11 +292,26 @@ function updateProgress(percent, text) {
     elements.statusText.textContent = text;
 }
 
-function showSuccess() {
+function showSuccess(data) {
     elements.form.hidden = true;
     elements.statusContainer.hidden = true;
+    
+    // Add details to success message
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'success-details';
+    detailsDiv.innerHTML = `
+        <p><strong>File:</strong> ${data?.fileName || 'Berhasil disimpan'}</p>
+        <p><strong>Kategori:</strong> ${data?.category || state.selectedCategory}</p>
+    `;
+    detailsDiv.style.cssText = 'margin: 1rem 0; padding: 1rem; background: #f0fdf4; border-radius: 8px; color: #166534;';
+    
+    const existingDetails = elements.successMessage.querySelector('.success-details');
+    if (existingDetails) existingDetails.remove();
+    
+    elements.successMessage.insertBefore(detailsDiv, elements.successMessage.querySelector('button'));
+    
     elements.successMessage.hidden = false;
-    loadStats(); // Refresh stats
+    loadStats();
 }
 
 function resetForm() {
@@ -239,6 +327,10 @@ function resetForm() {
     elements.statusContainer.hidden = true;
     elements.progressFill.style.width = '0%';
     
+    // Remove success details
+    const details = elements.successMessage.querySelector('.success-details');
+    if (details) details.remove();
+    
     // Reset category selection visual
     document.querySelectorAll('.category-card input').forEach(input => {
         input.checked = false;
@@ -247,22 +339,35 @@ function resetForm() {
     validateForm();
 }
 
+// ==========================================
 // Notification System
+// ==========================================
+
 function showNotification(message, type = 'info') {
-    // Create notification element
+    // Remove existing notifications
+    const existing = document.querySelector('.sipilah-notification');
+    if (existing) existing.remove();
+    
     const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
+    notification.className = `sipilah-notification notification-${type}`;
     notification.innerHTML = `
-        <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+        <i class="fas ${getIconForType(type)}"></i>
         <span>${message}</span>
+        <button class="close-btn">&times;</button>
     `;
     
-    // Styles
+    const colors = {
+        error: '#ef4444',
+        success: '#10b981',
+        warning: '#f59e0b',
+        info: '#3b82f6'
+    };
+    
     notification.style.cssText = `
         position: fixed;
         top: 90px;
         right: 20px;
-        background: ${type === 'error' ? '#ef4444' : '#3b82f6'};
+        background: ${colors[type] || colors.info};
         color: white;
         padding: 1rem 1.5rem;
         border-radius: 12px;
@@ -272,20 +377,57 @@ function showNotification(message, type = 'info') {
         gap: 0.75rem;
         z-index: 9999;
         animation: slideIn 0.3s ease;
+        max-width: 400px;
+        font-weight: 500;
     `;
+    
+    const closeBtn = notification.querySelector('.close-btn');
+    closeBtn.style.cssText = `
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        margin-left: 0.5rem;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+    closeBtn.onclick = () => notification.remove();
     
     document.body.appendChild(notification);
     
+    // Auto remove after 5 seconds
     setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease';
-        setTimeout(() => notification.remove(), 300);
+        if (notification.parentNode) {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }
     }, 5000);
 }
 
-// Load Statistics (from Google Sheets)
+function getIconForType(type) {
+    const icons = {
+        error: 'fa-exclamation-circle',
+        success: 'fa-check-circle',
+        warning: 'fa-exclamation-triangle',
+        info: 'fa-info-circle'
+    };
+    return icons[type] || icons.info;
+}
+
+// ==========================================
+// Statistics
+// ==========================================
+
 async function loadStats() {
     try {
-        const response = await fetch(`${CONFIG.GAS_URL}?action=getStats`);
+        // Add cache-busting parameter
+        const url = `${CONFIG.GAS_URL}?action=getStats&_=${Date.now()}`;
+        const response = await fetch(url);
         const data = await response.json();
         
         if (data.success) {
@@ -299,14 +441,18 @@ async function loadStats() {
 
 function animateNumber(elementId, target) {
     const element = document.getElementById(elementId);
+    if (!element) return;
+    
     const duration = 1000;
-    const start = 0;
-    const increment = target / (duration / 16);
+    const start = parseInt(element.textContent.replace(/\D/g, '')) || 0;
+    const increment = (target - start) / (duration / 16);
     let current = start;
+    
+    if (start === target) return;
     
     const timer = setInterval(() => {
         current += increment;
-        if (current >= target) {
+        if ((increment > 0 && current >= target) || (increment < 0 && current <= target)) {
             current = target;
             clearInterval(timer);
         }
@@ -314,7 +460,10 @@ function animateNumber(elementId, target) {
     }, 16);
 }
 
-// Add CSS animations dynamically
+// ==========================================
+// CSS Animations
+// ==========================================
+
 const style = document.createElement('style');
 style.textContent = `
     @keyframes slideIn {
