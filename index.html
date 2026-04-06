@@ -1,1 +1,249 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIPILAH - Crowdsourcing Dataset Sampah</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <i class="fas fa-recycle"></i>
+                <span>SIPILAH</span>
+            </div>
+            <nav class="nav">
+                <a href="#upload" class="nav-link">Unggah Data</a>
+                <a href="#about" class="nav-link">Tentang</a>
+                <a href="https://github.com" target="_blank" class="nav-link">
+                    <i class="fab fa-github"></i> GitHub
+                </a>
+            </nav>
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </header>
 
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Kontribusi Dataset<br><span class="gradient-text">Untuk Masa Depan</span></h1>
+                <p>Bantu kami membangun dataset sampah terbesar untuk pengembangan Machine Learning dalam klasifikasi dan pengelolaan sampah.</p>
+                <a href="#upload" class="btn btn-primary">
+                    <i class="fas fa-upload"></i> Mulai Berkontribusi
+                </a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat-card">
+                    <i class="fas fa-image"></i>
+                    <h3 id="totalImages">0</h3>
+                    <p>Total Gambar</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-users"></i>
+                    <h3 id="totalContributors">0</h3>
+                    <p>Kontributor</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-layer-group"></i>
+                    <h3>4</h3>
+                    <p>Kategori</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Upload Section -->
+    <section class="upload-section" id="upload">
+        <div class="container">
+            <div class="section-header">
+                <h2>Unggah Dataset</h2>
+                <p>Pilih kategori dan unggah gambar sampah untuk melatih model AI</p>
+            </div>
+
+            <form class="upload-form" id="uploadForm">
+                <!-- Category Selection -->
+                <div class="form-group">
+                    <label class="form-label">Pilih Kategori Sampah</label>
+                    <div class="category-grid">
+                        <label class="category-card" data-category="Organik">
+                            <input type="radio" name="category" value="Organik" required>
+                            <div class="category-content">
+                                <i class="fas fa-leaf"></i>
+                                <span>Organik</span>
+                                <small>Sisa makanan, daun, dll</small>
+                            </div>
+                        </label>
+                        <label class="category-card" data-category="Anorganik">
+                            <input type="radio" name="category" value="Anorganik" required>
+                            <div class="category-content">
+                                <i class="fas fa-box"></i>
+                                <span>Anorganik</span>
+                                <small>Plastik, kaca, logam, dll</small>
+                            </div>
+                        </label>
+                        <label class="category-card" data-category="Residu">
+                            <input type="radio" name="category" value="Residu" required>
+                            <div class="category-content">
+                                <i class="fas fa-trash-alt"></i>
+                                <span>Residu</span>
+                                <small>Sampah tak terpilah</small>
+                            </div>
+                        </label>
+                        <label class="category-card" data-category="B3">
+                            <input type="radio" name="category" value="B3" required>
+                            <div class="category-content">
+                                <i class="fas fa-biohazard"></i>
+                                <span>B3</span>
+                                <small>Bahan berbahaya</small>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Item Name -->
+                <div class="form-group">
+                    <label for="itemName" class="form-label">Nama Item</label>
+                    <input type="text" id="itemName" name="itemName" class="form-input" 
+                           placeholder="Contoh: Botol Plastik Aqua" required>
+                </div>
+
+                <!-- Image Upload -->
+                <div class="form-group">
+                    <label class="form-label">Unggah Gambar</label>
+                    <div class="drop-zone" id="dropZone">
+                        <input type="file" id="imageInput" name="image" accept="image/*" required hidden>
+                        <div class="drop-zone-content">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Seret gambar ke sini atau <span class="text-primary">klik untuk memilih</span></p>
+                            <small>Format: JPG, PNG, WEBP (Maks. 5MB)</small>
+                        </div>
+                        <div class="preview-container" id="previewContainer" hidden>
+                            <img id="imagePreview" alt="Preview">
+                            <button type="button" class="remove-image" id="removeImage">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-submit" id="submitBtn" disabled>
+                    <span class="btn-text">
+                        <i class="fas fa-paper-plane"></i> Kirim Data
+                    </span>
+                    <span class="btn-loader" hidden>
+                        <i class="fas fa-spinner fa-spin"></i> Mengunggah...
+                    </span>
+                </button>
+            </form>
+
+            <!-- Progress & Status -->
+            <div class="status-container" id="statusContainer" hidden>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p class="status-text" id="statusText">Memproses...</p>
+            </div>
+
+            <!-- Success Message -->
+            <div class="success-message" id="successMessage" hidden>
+                <i class="fas fa-check-circle"></i>
+                <h3>Data Berhasil Dikirim!</h3>
+                <p>Terima kasih atas kontribusi Anda. Data telah tersimpan di database kami.</p>
+                <button type="button" class="btn btn-secondary" id="uploadAnother">
+                    <i class="fas fa-plus"></i> Unggah Lagi
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Categories Info -->
+    <section class="categories-info" id="about">
+        <div class="container">
+            <h2>Panduan Kategori</h2>
+            <div class="info-grid">
+                <div class="info-card organik">
+                    <div class="info-icon">
+                        <i class="fas fa-leaf"></i>
+                    </div>
+                    <h3>Organik (O)</h3>
+                    <ul>
+                        <li>Sisa makanan</li>
+                        <li>Daun dan ranting</li>
+                        <li>Kulit buah</li>
+                        <li>Tulang hewan</li>
+                    </ul>
+                </div>
+                <div class="info-card anorganik">
+                    <div class="info-icon">
+                        <i class="fas fa-box"></i>
+                    </div>
+                    <h3>Anorganik (A)</h3>
+                    <ul>
+                        <li>Plastik kemasan</li>
+                        <li>Botol kaca</li>
+                        <li>Kaleng logam</li>
+                        <li>Kertas dan karton</li>
+                    </ul>
+                </div>
+                <div class="info-card residu">
+                    <div class="info-icon">
+                        <i class="fas fa-trash-alt"></i>
+                    </div>
+                    <h3>Residu (R)</h3>
+                    <ul>
+                        <li>Popok bekas</li>
+                        <li>Puntung rokok</li>
+                        <li>Masker medis</li>
+                        <li>Styrofoam kotor</li>
+                    </ul>
+                </div>
+                <div class="info-card b3">
+                    <div class="info-icon">
+                        <i class="fas fa-biohazard"></i>
+                    </div>
+                    <h3>B3 (B)</h3>
+                    <ul>
+                        <li>Baterai bekas</li>
+                        <li>Lampu neon</li>
+                        <li>Obat kadaluarsa</li>
+                        <li>Cat dan pelarut</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="logo">
+                        <i class="fas fa-recycle"></i>
+                        <span>SIPILAH</span>
+                    </div>
+                    <p>Platform crowdsourcing dataset untuk klasifikasi sampah berbasis Machine Learning.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="https://github.com" target="_blank"><i class="fab fa-github"></i></a>
+                    <a href="#" target="_blank"><i class="fab fa-twitter"></i></a>
+                    <a href="#" target="_blank"><i class="fas fa-envelope"></i></a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 SIPILAH. Open Source Project.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
