@@ -1,22 +1,23 @@
 // ==========================================
-// SIPILAH - Frontend Script (Fixed)
+// SIPILAH - Frontend Script
+// Menggunakan FormData untuk menghindari CORS
 // ==========================================
 
-// Configuration - GANTI DENGAN URL WEB APP ANDA
+// ⚠️ GANTI DENGAN URL WEB APP ANDA!
 const CONFIG = {
-    GAS_URL: 'https://script.google.com/macros/s/AKfycbwm6VAlXYzDfTQExNEzImvgIpQ02gFoDJHbT7JsDLrdLggbKQQg-zB3MNiKrZaFv-Mlug/exec', // GANTI INI!
-    MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB
+    GAS_URL: 'https://script.google.com/macros/s/AKfycbwm6VAlXYzDfTQExNEzImvgIpQ02gFoDJHbT7JsDLrdLggbKQQg-zB3MNiKrZaFv-Mlug/exec',
+    MAX_FILE_SIZE: 5 * 1024 * 1024,
     ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
 };
 
-// State Management
+// State
 const state = {
     selectedFile: null,
     selectedCategory: null,
     isUploading: false
 };
 
-// DOM Elements
+// Elements
 const elements = {
     form: document.getElementById('uploadForm'),
     dropZone: document.getElementById('dropZone'),
@@ -39,31 +40,30 @@ const elements = {
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if GAS_URL is set
-    if (CONFIG.GAS_URL.includes('XXXXXXXX')) {
-        showNotification('⚠️ Konfigurasi belum lengkap! Silakan update GAS_URL di script.js', 'warning');
-        console.error('ERROR: Please update CONFIG.GAS_URL with your Google Apps Script Web App URL');
+    if (CONFIG.GAS_URL.includes('........')) {
+        showNotification('⚠️ Konfigurasi belum lengkap! Update GAS_URL di script.js', 'warning');
+        console.error('ERROR: Update CONFIG.GAS_URL dengan URL deployment Anda');
     }
     
     initializeEventListeners();
     loadStats();
+    
+    // Test connection
+    testConnection();
 });
 
 function initializeEventListeners() {
-    // Drop Zone Events
     elements.dropZone.addEventListener('click', () => elements.imageInput.click());
     elements.dropZone.addEventListener('dragover', handleDragOver);
     elements.dropZone.addEventListener('dragleave', handleDragLeave);
     elements.dropZone.addEventListener('drop', handleDrop);
     elements.imageInput.addEventListener('change', handleFileSelect);
 
-    // Remove Image
     elements.removeImage.addEventListener('click', (e) => {
         e.stopPropagation();
         resetImage();
     });
 
-    // Category Selection
     elements.categoryCards.forEach(card => {
         const input = card.querySelector('input');
         input.addEventListener('change', () => {
@@ -72,18 +72,13 @@ function initializeEventListeners() {
         });
     });
 
-    // Form Submission
     elements.form.addEventListener('submit', handleSubmit);
-
-    // Upload Another
     elements.uploadAnother.addEventListener('click', resetForm);
-
-    // Input validation
     elements.itemName.addEventListener('input', validateForm);
 }
 
 // ==========================================
-// Drag & Drop Handlers
+// Drag & Drop
 // ==========================================
 
 function handleDragOver(e) {
@@ -104,16 +99,12 @@ function handleDrop(e) {
     elements.dropZone.classList.remove('dragover');
     
     const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        processFile(files[0]);
-    }
+    if (files.length > 0) processFile(files[0]);
 }
 
 function handleFileSelect(e) {
     const file = e.target.files[0];
-    if (file) {
-        processFile(file);
-    }
+    if (file) processFile(file);
 }
 
 // ==========================================
@@ -121,7 +112,6 @@ function handleFileSelect(e) {
 // ==========================================
 
 function processFile(file) {
-    // Validation
     if (!CONFIG.ALLOWED_TYPES.includes(file.type)) {
         showNotification('❌ Format file tidak didukung. Gunakan JPG, PNG, atau WEBP.', 'error');
         return;
@@ -134,15 +124,11 @@ function processFile(file) {
 
     state.selectedFile = file;
 
-    // Preview
     const reader = new FileReader();
     reader.onload = (e) => {
         elements.imagePreview.src = e.target.result;
         elements.dropZone.querySelector('.drop-zone-content').hidden = true;
         elements.previewContainer.hidden = false;
-    };
-    reader.onerror = () => {
-        showNotification('❌ Gagal membaca file', 'error');
     };
     reader.readAsDataURL(file);
 
@@ -158,86 +144,61 @@ function resetImage() {
     validateForm();
 }
 
-// ==========================================
-// Form Validation
-// ==========================================
-
 function validateForm() {
     const isValid = state.selectedFile && 
                     state.selectedCategory && 
                     elements.itemName.value.trim().length > 0;
-    
     elements.submitBtn.disabled = !isValid;
 }
 
 // ==========================================
-// Submit Handler (FIXED)
+// SUBMIT - METODE BARU MENGGUNAKAN FORMDATA
 // ==========================================
 
 async function handleSubmit(e) {
     e.preventDefault();
-    
     if (state.isUploading) return;
     
-    // Validate GAS_URL
-    if (CONFIG.GAS_URL.includes('XXXXXXXX') || !CONFIG.GAS_URL.includes('google.com')) {
-        showNotification('⚠️ URL Google Apps Script belum dikonfigurasi dengan benar!', 'error');
+    if (CONFIG.GAS_URL.includes('........')) {
+        showNotification('⚠️ URL Google Apps Script belum dikonfigurasi!', 'error');
         return;
     }
     
     state.isUploading = true;
     setLoading(true);
-    updateProgress(10, 'Mempersiapkan data...');
+    updateProgress(10, 'Membaca gambar...');
 
     try {
         // Convert image to base64
-        updateProgress(20, 'Memproses gambar...');
         const base64Image = await fileToBase64(state.selectedFile);
-        
-        // Prepare payload
-        const payload = {
-            action: 'upload',
-            itemName: elements.itemName.value.trim(),
-            category: state.selectedCategory,
-            imageData: base64Image,
-            imageType: state.selectedFile.type,
-            imageName: state.selectedFile.name,
-            timestamp: new Date().toISOString()
-        };
+        updateProgress(30, 'Mempersiapkan data...');
 
-        updateProgress(40, 'Mengunggah ke server...');
+        // METHOD 1: Menggunakan FormData (RECOMMENDED - Hindari CORS)
+        const formData = new FormData();
+        formData.append('action', 'upload');
+        formData.append('itemName', elements.itemName.value.trim());
+        formData.append('category', state.selectedCategory);
+        formData.append('imageData', base64Image);
+        formData.append('imageType', state.selectedFile.type);
+        formData.append('imageName', state.selectedFile.name);
+        formData.append('timestamp', new Date().toISOString());
 
-        // Method 1: Using fetch with no-cors mode as fallback
-        let response;
-        try {
-            response = await fetch(CONFIG.GAS_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload)
-            });
-        } catch (fetchError) {
-            console.log('Fetch failed, trying alternative method...');
-            // If fetch fails, try with form data approach
-            response = await fetchWithFormData(payload);
-        }
+        updateProgress(50, 'Mengunggah ke server...');
+
+        const response = await fetch(CONFIG.GAS_URL, {
+            method: 'POST',
+            // JANGAN set Content-Type header! Browser akan otomatis set dengan boundary
+            body: formData
+        });
 
         updateProgress(80, 'Memproses respons...');
 
-        let result;
-        try {
-            result = await response.json();
-        } catch (jsonError) {
-            // If response is not JSON, check if it's actually successful
-            const text = await response.text();
-            try {
-                result = JSON.parse(text);
-            } catch {
-                throw new Error('Respons server tidak valid: ' + text.substring(0, 100));
-            }
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
+        const result = await response.json();
+        
         if (result.success) {
             updateProgress(100, 'Selesai!');
             setTimeout(() => showSuccess(result.data), 500);
@@ -247,35 +208,64 @@ async function handleSubmit(e) {
 
     } catch (error) {
         console.error('Upload error:', error);
-        showNotification('❌ ' + error.message, 'error');
+        showNotification('❌ Error: ' + error.message, 'error');
+        
+        // Fallback: Coba method alternatif dengan URL encoded
+        if (error.message.includes('Failed to fetch')) {
+            showNotification('🔄 Mencoba method alternatif...', 'info');
+            tryAlternativeSubmit();
+        } else {
+            setLoading(false);
+            state.isUploading = false;
+        }
+    }
+}
+
+// Alternative method menggunakan URLSearchParams
+async function tryAlternativeSubmit() {
+    try {
+        const base64Image = await fileToBase64(state.selectedFile);
+        
+        const params = new URLSearchParams();
+        params.append('action', 'upload');
+        params.append('itemName', elements.itemName.value.trim());
+        params.append('category', state.selectedCategory);
+        params.append('imageData', base64Image);
+        params.append('imageType', state.selectedFile.type);
+        params.append('imageName', state.selectedFile.name);
+
+        const response = await fetch(CONFIG.GAS_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: params.toString()
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            updateProgress(100, 'Selesai!');
+            showSuccess(result.data);
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error) {
+        showNotification('❌ Method alternatif juga gagal: ' + error.message, 'error');
         setLoading(false);
         state.isUploading = false;
     }
 }
 
-// Alternative fetch method using URL-encoded form data
-async function fetchWithFormData(payload) {
-    const formData = new URLSearchParams();
-    formData.append('data', JSON.stringify(payload));
-    
-    return await fetch(CONFIG.GAS_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: formData.toString()
-    });
-}
-
 // ==========================================
-// Utility Functions
+// Utilities
 // ==========================================
 
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('Gagal membaca file'));
+        reader.onerror = reject;
         reader.readAsDataURL(file);
     });
 }
@@ -296,22 +286,23 @@ function showSuccess(data) {
     elements.form.hidden = true;
     elements.statusContainer.hidden = true;
     
-    // Add details to success message
     const detailsDiv = document.createElement('div');
     detailsDiv.className = 'success-details';
     detailsDiv.innerHTML = `
-        <p><strong>File:</strong> ${data?.fileName || 'Berhasil disimpan'}</p>
-        <p><strong>Kategori:</strong> ${data?.category || state.selectedCategory}</p>
+        <p><strong>✓ File:</strong> ${data?.fileName || 'Berhasil disimpan'}</p>
+        <p><strong>✓ Kategori:</strong> ${data?.category || state.selectedCategory}</p>
     `;
-    detailsDiv.style.cssText = 'margin: 1rem 0; padding: 1rem; background: #f0fdf4; border-radius: 8px; color: #166534;';
+    detailsDiv.style.cssText = 'margin: 1rem 0; padding: 1rem; background: #f0fdf4; border-radius: 8px; color: #166534; border-left: 4px solid #10b981;';
     
-    const existingDetails = elements.successMessage.querySelector('.success-details');
-    if (existingDetails) existingDetails.remove();
+    const existing = elements.successMessage.querySelector('.success-details');
+    if (existing) existing.remove();
     
     elements.successMessage.insertBefore(detailsDiv, elements.successMessage.querySelector('button'));
-    
     elements.successMessage.hidden = false;
+    
     loadStats();
+    setLoading(false);
+    state.isUploading = false;
 }
 
 function resetForm() {
@@ -327,11 +318,9 @@ function resetForm() {
     elements.statusContainer.hidden = true;
     elements.progressFill.style.width = '0%';
     
-    // Remove success details
     const details = elements.successMessage.querySelector('.success-details');
     if (details) details.remove();
     
-    // Reset category selection visual
     document.querySelectorAll('.category-card input').forEach(input => {
         input.checked = false;
     });
@@ -340,18 +329,70 @@ function resetForm() {
 }
 
 // ==========================================
-// Notification System
+// Test Connection
 // ==========================================
 
+async function testConnection() {
+    try {
+        const response = await fetch(`${CONFIG.GAS_URL}?action=test&_=${Date.now()}`);
+        const data = await response.json();
+        if (data.success) {
+            console.log('✓ API Connection OK:', data.message);
+        }
+    } catch (error) {
+        console.error('✗ API Connection Failed:', error);
+        showNotification('⚠️ Tidak dapat terhubung ke server. Periksa URL deployment.', 'warning');
+    }
+}
+
+// ==========================================
+// Stats & Notifications
+// ==========================================
+
+async function loadStats() {
+    try {
+        const url = `${CONFIG.GAS_URL}?action=getStats&_=${Date.now()}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success) {
+            animateNumber('totalImages', data.totalImages || 0);
+            animateNumber('totalContributors', data.totalContributors || 0);
+        }
+    } catch (error) {
+        console.error('Failed to load stats:', error);
+    }
+}
+
+function animateNumber(elementId, target) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    const start = parseInt(element.textContent.replace(/\D/g, '')) || 0;
+    if (start === target) return;
+    
+    const duration = 1000;
+    const increment = (target - start) / (duration / 16);
+    let current = start;
+    
+    const timer = setInterval(() => {
+        current += increment;
+        if ((increment > 0 && current >= target) || (increment < 0 && current <= target)) {
+            current = target;
+            clearInterval(timer);
+        }
+        element.textContent = Math.floor(current).toLocaleString('id-ID');
+    }, 16);
+}
+
 function showNotification(message, type = 'info') {
-    // Remove existing notifications
     const existing = document.querySelector('.sipilah-notification');
     if (existing) existing.remove();
     
     const notification = document.createElement('div');
     notification.className = `sipilah-notification notification-${type}`;
     notification.innerHTML = `
-        <i class="fas ${getIconForType(type)}"></i>
+        <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : type === 'success' ? 'fa-check-circle' : type === 'warning' ? 'fa-exclamation-triangle' : 'fa-info-circle'}"></i>
         <span>${message}</span>
         <button class="close-btn">&times;</button>
     `;
@@ -367,7 +408,7 @@ function showNotification(message, type = 'info') {
         position: fixed;
         top: 90px;
         right: 20px;
-        background: ${colors[type] || colors.info};
+        background: ${colors[type]};
         color: white;
         padding: 1rem 1.5rem;
         border-radius: 12px;
@@ -389,18 +430,11 @@ function showNotification(message, type = 'info') {
         font-size: 1.5rem;
         cursor: pointer;
         margin-left: 0.5rem;
-        padding: 0;
-        width: 24px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
     `;
     closeBtn.onclick = () => notification.remove();
     
     document.body.appendChild(notification);
     
-    // Auto remove after 5 seconds
     setTimeout(() => {
         if (notification.parentNode) {
             notification.style.animation = 'slideOut 0.3s ease';
@@ -409,70 +443,10 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
-function getIconForType(type) {
-    const icons = {
-        error: 'fa-exclamation-circle',
-        success: 'fa-check-circle',
-        warning: 'fa-exclamation-triangle',
-        info: 'fa-info-circle'
-    };
-    return icons[type] || icons.info;
-}
-
-// ==========================================
-// Statistics
-// ==========================================
-
-async function loadStats() {
-    try {
-        // Add cache-busting parameter
-        const url = `${CONFIG.GAS_URL}?action=getStats&_=${Date.now()}`;
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        if (data.success) {
-            animateNumber('totalImages', data.totalImages || 0);
-            animateNumber('totalContributors', data.totalContributors || 0);
-        }
-    } catch (error) {
-        console.error('Failed to load stats:', error);
-    }
-}
-
-function animateNumber(elementId, target) {
-    const element = document.getElementById(elementId);
-    if (!element) return;
-    
-    const duration = 1000;
-    const start = parseInt(element.textContent.replace(/\D/g, '')) || 0;
-    const increment = (target - start) / (duration / 16);
-    let current = start;
-    
-    if (start === target) return;
-    
-    const timer = setInterval(() => {
-        current += increment;
-        if ((increment > 0 && current >= target) || (increment < 0 && current <= target)) {
-            current = target;
-            clearInterval(timer);
-        }
-        element.textContent = Math.floor(current).toLocaleString('id-ID');
-    }, 16);
-}
-
-// ==========================================
 // CSS Animations
-// ==========================================
-
 const style = document.createElement('style');
 style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
 `;
 document.head.appendChild(style);
